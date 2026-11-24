@@ -1,0 +1,32 @@
+{
+  "name": "funniest-outdoor",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test tests/*.test.mjs",
+    "start": "node server/postgres.mjs",
+    "db:postgres": "node server/migrate-postgres.mjs",
+    "setup": "node scripts/setup-local.mjs",
+    "build:vercel": "node scripts/build-vercel.mjs",
+    "ui": "vite --host 127.0.0.1",
+    "check": "npm run build && npm test",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "pg": "^8.13.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "miniflare": "^3.20241230.0",
+    "vite": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
