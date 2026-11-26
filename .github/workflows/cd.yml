@@ -1,0 +1,93 @@
+name: CD — Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Run CI Gate Before Deploy
+    uses: ./.github/workflows/ci.yml
+
+  deploy-backend:
+    name: Deploy Backend (Render / Railway)
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
+      BACKEND_PUBLIC_URL: ${{ secrets.BACKEND_PUBLIC_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Render Deploy Hook
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        run: |
+          echo "Memicu deploy backend ke Render..."
+          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
+
+      - name: Deploy Backend to Railway
+        if: env.RENDER_DEPLOY_HOOK_URL == '' && env.RAILWAY_TOKEN != ''
+        working-directory: backend
+        run: |
+          npm install -g @railway/cli
+          railway up --service "${RAILWAY_SERVICE:-backend}" --detach
+
+      - name: Skip notice (if no backend secret configured)
+        if: env.RENDER_DEPLOY_HOOK_URL == '' && env.RAILWAY_TOKEN == ''
+        run: |
+          echo "::notice::Lewati deploy backend — tambahkan secret RENDER_DEPLOY_HOOK_URL atau RAILWAY_TOKEN di GitHub Settings > Secrets untuk mengaktifkan CD backend."
+
+      - name: Post-deploy Backend Health Check
+        if: env.BACKEND_PUBLIC_URL != '' && (env.RENDER_DEPLOY_HOOK_URL != '' || env.RAILWAY_TOKEN != '')
+        run: |
+          echo "Menunggu health check ${BACKEND_PUBLIC_URL}/api/health ..."
+          for i in $(seq 1 12); do
+            if curl --fail --silent "${BACKEND_PUBLIC_URL}/api/health" | grep -q '"status":"ok"'; then
+              echo "Backend production sehat!"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::Health check belum merespons OK setelah 2 menit (mungkin masih build/cold-start)."
+
+  deploy-frontend:
+    name: Deploy Frontend (Vercel)
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Vercel Deploy Hook
+        if: env.VERCEL_DEPLOY_HOOK_URL != ''
+        run: |
+          echo "Memicu deploy frontend ke Vercel..."
+          curl --fail --silent --show-error -X POST "$VERCEL_DEPLOY_HOOK_URL"
+
+      - name: Deploy Frontend via Vercel CLI
+        if: env.VERCEL_DEPLOY_HOOK_URL == '' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != ''
+        working-directory: frontend
+        run: |
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx vercel build --prod --token="$VERCEL_TOKEN"
+          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+
+      - name: Skip notice (if no Vercel secret configured)
+        if: env.VERCEL_DEPLOY_HOOK_URL == '' && env.VERCEL_TOKEN == ''
+        run: |
+          echo "::notice::Lewati deploy frontend — tambahkan secret VERCEL_DEPLOY_HOOK_URL (atau VERCEL_TOKEN + VERCEL_ORG_ID + VERCEL_PROJECT_ID) di GitHub Settings > Secrets."
