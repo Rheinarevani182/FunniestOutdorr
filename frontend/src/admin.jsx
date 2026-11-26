@@ -138,7 +138,7 @@ export function Admin() {
               {menu ? <X /> : <Menu />}
             </button>
             <span>
-              Funniest.Outdoor <small>/ Panel Staf</small>
+              Funniest Outdoor <small>/ Panel Staf</small>
             </span>
           </div>
           <div className="profile">
