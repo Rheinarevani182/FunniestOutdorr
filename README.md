@@ -134,6 +134,33 @@ Untuk menghubungkan layanan AI Python, isi `AI_SERVICE_URL` di `backend/.env` (c
 
 ---
 
+## CI/CD Pipeline & Deployment
+
+Repositori ini menggunakan **GitHub Actions** untuk otomasi pengujian dan deployment:
+
+* **CI ([.github/workflows/ci.yml](./.github/workflows/ci.yml))** — Berjalan otomatis pada setiap `push` & `pull_request` ke `main` / `develop`:
+  * **Backend:** Menjalankan `npm test`, migrasi + seed ke container live `pgvector/pgvector:pg17`, serta *API integration smoke test* (`/api/health`, `/api/bootstrap`, *typo-tolerant* `/api/search`, `/api/recommend`).
+  * **Frontend:** Memverifikasi `vite build` dan output `frontend/dist/client/index.html`.
+  * **AI Service:** Otomatis aktif ketika `ai-service/requirements.txt` ditambahkan.
+* **CD ([.github/workflows/cd.yml](./.github/workflows/cd.yml))** — Berjalan pada `push` ke `main` (atau manual via *Actions → Run workflow*) setelah CI lulus:
+  * **Backend (Render / Railway):** Mendukung Render Blueprint ([render.yaml](./render.yaml)), Railway CLI, dan [backend/Dockerfile](./backend/Dockerfile).
+  * **Frontend (Vercel):** Menggunakan [frontend/vercel.json](./frontend/vercel.json) (`Root Directory: frontend`).
+
+### GitHub Repository Secrets (Opsional untuk Auto-Deploy)
+
+Tambahkan di **GitHub → Settings → Secrets and variables → Actions**:
+
+| Target | Secret yang Diperlukan | Keterangan |
+| :--- | :--- | :--- |
+| **Backend (Render)** | `RENDER_DEPLOY_HOOK_URL` | URL Deploy Hook dari dashboard Render |
+| **Backend (Railway)** | `RAILWAY_TOKEN`, `RAILWAY_SERVICE` | Alternatif jika hosting backend di Railway |
+| **Health Check** | `BACKEND_PUBLIC_URL` | Contoh: `https://funniest-outdoor-backend.onrender.com` |
+| **Frontend (Vercel)** | `VERCEL_DEPLOY_HOOK_URL` | Paling mudah — atau gunakan `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
+
+> **Penting setelah Backend Production aktif:** Tambahkan rule rewrite `/api/:path*` di baris paling atas `rewrites` pada [frontend/vercel.json](./frontend/vercel.json) menuju `https://<domain-backend>/api/:path*` agar cookie autentikasi (`HttpOnly`) berjalan *same-origin* di Vercel.
+
+---
+
 ## Evaluasi Model AI *(Akan Dilengkapi pada Minggu 3–4)*
 
 * **Sistem Rekomendasi (*Gear Bundling*):** Perbandingan metrik `NDCG@K` & `Recall@K` terhadap *baseline* popularitas *(TBD)*.

@@ -1,0 +1,26 @@
+# Render Blueprint — Funniest Outdoor Core Backend (Express v5 + PostgreSQL)
+# Dokumentasi: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: funniest-outdoor-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run db:migrate && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_SSL
+        value: "true"
+      - key: AI_TIMEOUT_MS
+        value: "1000"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: AI_SERVICE_URL
+        sync: false
